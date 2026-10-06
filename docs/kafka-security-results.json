@@ -1,0 +1,60 @@
+{
+  "transport": "real Kafka mTLS + identity ACL",
+  "cases": [
+    {
+      "case": "producer can write raw",
+      "passed": true,
+      "evidence": "operation succeeded"
+    },
+    {
+      "case": "producer cannot bypass gateway",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "producer cannot write quarantine",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "producer cannot read raw",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "reader can read verified with own group",
+      "passed": true,
+      "evidence": "operation succeeded"
+    },
+    {
+      "case": "reader cannot read raw",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "reader cannot write verified",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "reader cannot use foreign group",
+      "passed": true,
+      "evidence": "GroupAuthorizationFailedError"
+    },
+    {
+      "case": "trusted certificate without ACL cannot write",
+      "passed": true,
+      "evidence": "TopicAuthorizationFailedError"
+    },
+    {
+      "case": "client certificate required",
+      "passed": true,
+      "evidence": "SSLError"
+    },
+    {
+      "case": "server hostname checked",
+      "passed": true,
+      "evidence": "SSLCertVerificationError"
+    }
+  ]
+}
