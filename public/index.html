@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AHMS | Telemetri ve güvenlik</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/socket.io/socket.io.js" defer></script><script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">AHMS · LABORATUVAR</p><h1>Telemetri ve güvenlik</h1><p>Mesaj bütünlüğü, tekrar gönderim ve sensör anomalisi takibi.</p></div><span id="connection" class="badge unknown">Bağlanıyor</span></header>
+    <section class="status-grid" aria-label="Servis durumu">
+      <div><span>Kafka</span><strong id="kafka-state">Bilinmiyor</strong></div>
+      <div><span>AI değerlendirmesi</span><strong id="ai-state">Bilinmiyor</strong></div>
+      <div><span>Son kabul edilen ölçüm</span><strong id="freshness">Henüz yok</strong></div>
+      <div><span>Bekleyen yayın</span><strong id="pending">—</strong></div>
+    </section>
+    <section class="cards" aria-label="Son kabul edilen telemetri">
+      <article><span>Motor sıcaklığı</span><strong id="temp">—</strong><small>°C</small></article>
+      <article><span>Kabin basıncı</span><strong id="pressure">—</strong><small>psi</small></article>
+      <article><span>Devir göstergesi</span><strong id="rpm">—</strong><small>RPM</small></article>
+    </section>
+    <p id="measurement-status" class="notice unknown" role="status">Henüz değerlendirilmiş ölçüm yok.</p>
+    <p id="alert" class="notice warning" role="alert" hidden></p>
+    <button id="acknowledge" type="button">Alarm bildirimini gördüm</button>
+    <section class="events"><div class="section-head"><h2>Güvenlik olayları</h2><span>Son 100 olay</span></div>
+      <div class="table-scroll"><table><thead><tr><th>Zaman</th><th>Sensör</th><th>Değerlendirme</th><th>Karar</th><th>Neden</th></tr></thead><tbody id="event-list"></tbody></table></div>
+    </section>
+    <footer>Kabul, mesaj kimliği ve bütünlüğünün doğrulandığını belirtir. Anomaliler gözlem amaçlıdır; sensör veya servis otomatik kapatılmaz. Bu kurulum yerel laboratuvar içindir.</footer>
+  </main>
+</body>
+</html>
