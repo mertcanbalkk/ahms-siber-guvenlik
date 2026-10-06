@@ -1,6 +1,6 @@
 # AHMS Siber Güvenlik Laboratuvarı
 
-Uçak Sağlık Yönetimi (AHMS) telemetrisinde mesaj bütünlüğünü, tekrar gönderimleri ve sensör anomalilerini izleyen bir **bitirme projesi prototipi**.
+Uçak Sağlık Yönetimi (AHMS) telemetrisinde mesaj bütünlüğünü, tekrar gönderimleri ve sensör anomalilerini izlemek için geliştirdiğim bir siber güvenlik projesi.
 
 Node.js gateway, Kafka, Python/FastAPI ve Isolation Forest modeli birlikte çalışır. Kafka bağlantıları mTLS ile korunur; servisler konu bazlı erişim yetkileriyle ayrılır. Çalışma sırasında model çıkarımı yereldir, bulut bağlantısı gerektirmez.
 
