@@ -1,0 +1,38 @@
+# Yerel kimlikler, TLS sertifikaları ve parolalar
+security/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.crt
+*.cer
+store-password
+
+# Çalışma verisi, modeller ve bağımlılıklar
+data/
+models/
+*.pkl
+*.sqlite*
+*.db
+*.db-*
+*.log
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ahms-backups/
+
+# Yerel test çıktıları ve editör dosyaları
+evaluation.json
+e2e-*.json
+security-results.json
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

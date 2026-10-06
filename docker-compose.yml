@@ -1,0 +1,204 @@
+services:
+  cert-init:
+    profiles: [setup]
+    build:
+      context: .
+      dockerfile: Dockerfile.certificates
+    command: [--output, /security/tls]
+    volumes: ["./security:/security"]
+    network_mode: none
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zk-data:/var/lib/zookeeper/data
+      - zk-log:/var/lib/zookeeper/log
+    networks: [coordination]
+    healthcheck:
+      test: [CMD-SHELL, "bash -c 'echo > /dev/tcp/127.0.0.1/2181'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports: ["127.0.0.1:29092:29092"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: SSL://0.0.0.0:9092,SSL_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: SSL://kafka:9092,SSL_HOST://127.0.0.1:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: SSL:SSL,SSL_HOST:SSL
+      KAFKA_INTER_BROKER_LISTENER_NAME: SSL
+      KAFKA_SSL_CLIENT_AUTH: required
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: https
+      KAFKA_SSL_KEYSTORE_TYPE: PKCS12
+      KAFKA_SSL_KEYSTORE_FILENAME: broker.p12
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: store-password
+      KAFKA_SSL_KEY_CREDENTIALS: store-password
+      KAFKA_SSL_TRUSTSTORE_TYPE: PKCS12
+      KAFKA_SSL_TRUSTSTORE_FILENAME: truststore.p12
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: store-password
+      KAFKA_AUTHORIZER_CLASS_NAME: kafka.security.authorizer.AclAuthorizer
+      KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+      KAFKA_SUPER_USERS: User:CN=kafka;User:CN=admin
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OPTS: -Duser.language=en -Duser.country=US
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      - ./security/tls/broker:/etc/kafka/secrets:ro
+    group_add: ["0"]
+    networks: [coordination, telemetry]
+    healthcheck:
+      test: [CMD, kafka-broker-api-versions, --bootstrap-server, localhost:9092, --command-config, /etc/kafka/secrets/client.properties]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  acl-init:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [bash, /opt/ahms/init_acl.sh]
+    environment:
+      KAFKA_OPTS: -Duser.language=en -Duser.country=US
+    volumes:
+      - ./scripts/init_acl.sh:/opt/ahms/init_acl.sh:ro
+      - ./security/tls/admin:/run/tls:ro
+    group_add: ["0"]
+    networks: [telemetry]
+    restart: "no"
+  ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    ports: ["127.0.0.1:8000:8000"]
+    networks: [analysis]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    read_only: true
+    tmpfs: [/tmp]
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    depends_on:
+      acl-init:
+        condition: service_completed_successfully
+      ai:
+        condition: service_healthy
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_REQUIRE_MTLS: "true"
+      KAFKA_SSL_CA: /run/tls/ca.pem
+      KAFKA_SSL_CERT: /run/tls/cert.pem
+      KAFKA_SSL_KEY: /run/tls/key.pem
+      CREATE_TOPICS: "false"
+      AI_URL: http://ai:8000/predict
+      HTTP_HOST: 0.0.0.0
+      KEY_REGISTRY_PATH: /run/secrets/gateway_keys
+      STATE_PATH: /app/data/gateway.sqlite
+    secrets: [gateway_keys]
+    volumes:
+      - gateway-data:/app/data
+      - ./security/tls/gateway:/run/tls:ro
+    group_add: ["0"]
+    networks: [telemetry, analysis]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    read_only: true
+    tmpfs: [/tmp]
+  simulator:
+    profiles: [demo]
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    command: [python, telemetry_producer.py]
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_REQUIRE_MTLS: "true"
+      KAFKA_SSL_CA: /run/tls/ca.pem
+      KAFKA_SSL_CERT: /run/tls/cert.pem
+      KAFKA_SSL_KEY: /run/tls/key.pem
+      PRODUCER_KEY_PATH: /run/secrets/producer_key
+      PRODUCER_STATE_PATH: /app/data/producer.sqlite
+    secrets: [producer_key]
+    volumes:
+      - producer-data:/app/data
+      - ./security/tls/producer:/run/tls:ro
+    group_add: ["0"]
+    networks: [telemetry]
+    read_only: true
+    tmpfs: [/tmp]
+  reader:
+    profiles: [demo]
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    command: [python, verified_reader.py]
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_REQUIRE_MTLS: "true"
+      KAFKA_SSL_CA: /run/tls/ca.pem
+      KAFKA_SSL_CERT: /run/tls/cert.pem
+      KAFKA_SSL_KEY: /run/tls/key.pem
+    volumes: ["./security/tls/reader:/run/tls:ro"]
+    group_add: ["0"]
+    networks: [telemetry]
+    read_only: true
+    tmpfs: [/tmp]
+  security-test:
+    profiles: [test]
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    command: [python, -m, tests.security_lab]
+    depends_on:
+      gateway:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      TEST_TLS_ROOT: /test-tls
+    volumes:
+      - ./security/tls/producer:/test-tls/producer:ro
+      - ./security/tls/reader:/test-tls/reader:ro
+      - ./security/tls/probe:/test-tls/probe:ro
+    group_add: ["0"]
+    networks: [telemetry]
+    read_only: true
+    tmpfs: [/tmp]
+secrets:
+  gateway_keys:
+    file: ./security/gateway-keys.json
+  producer_key:
+    file: ./security/producer-key.json
+volumes:
+  zk-data:
+  zk-log:
+  kafka-data:
+  gateway-data:
+  producer-data:
+networks:
+  coordination:
+    internal: true
+  telemetry:
+  analysis:
+    internal: true

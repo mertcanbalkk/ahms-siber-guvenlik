@@ -1,0 +1,21 @@
+{
+  "name": "ahms-siber-guvenlik",
+  "version": "3.0.0",
+  "private": true,
+  "description": "AHMS laboratuvar telemetrisi i\u00e7in b\u00fct\u00fcnl\u00fck, replay ve anomali kontrol\u00fc",
+  "main": "telemetry_consumer.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "init": "node scripts/init_secrets.js",
+    "start": "node --env-file-if-exists=.env telemetry_consumer.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "kafkajs": "2.2.4",
+    "socket.io": "4.8.4"
+  }
+}
